@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rifa de Números</title>
+    <style>
+        .number-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 10px;
+            max-width: 300px;
+            margin: 20px auto;
+        }
+        .number {
+            padding: 10px;
+            background-color: lightgrey;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .selected {
+            background-color: lightgreen;
+        }
+    </style>
+</head>
+<body>
+    <h2>Selecciona tus números para la rifa</h2>
+    <div class="number-grid" id="numberGrid"></div>
+
+    <script>
+        let db;
+        const request = indexedDB.open("RifaDB", 1);
+
+        request.onupgradeneeded = function(event) {
+            db = event.target.result;
+            const objectStore = db.createObjectStore("numeros", { keyPath: "numero" });
+        };
+
+        request.onsuccess = function(event) {
+            db = event.target.result;
+            cargarNumeros();
+        };
+
+        request.onerror = function(event) {
+            console.error("Error al abrir la base de datos:", event);
+        };
+
+        function cargarNumeros() {
+            const numberGrid = document.getElementById('numberGrid');
+            for (let i = 0; i <= 99; i++) {
+                const numero = i < 10 ? `0${i}` : i.toString();
+                const numberDiv = document.createElement('div');
+                numberDiv.className = 'number';
+                numberDiv.textContent = numero;
+                numberDiv.onclick = () => toggleNumero(numero, numberDiv);
+                numberGrid.appendChild(numberDiv);
+            }
+
+            const transaction = db.transaction("numeros", "readonly");
+            const objectStore = transaction.objectStore("numeros");
+            objectStore.openCursor().onsuccess = function(event) {
+                const cursor = event.target.result;
+                if (cursor) {
+                    const numeroDiv = document.querySelector(`.number:contains(${cursor.key})`);
+                    if (numeroDiv) {
+                        numeroDiv.classList.add('selected');
+                    }
+                    cursor.continue();
+                }
+            };
+        }
+
+        function toggleNumero(numero, element) {
+            const transaction = db.transaction(["numeros"], "readwrite");
+            const objectStore = transaction.objectStore("numeros");
+
+            if (element.classList.contains('selected')) {
+                objectStore.delete(numero).onsuccess = function() {
+                    element.classList.remove('selected');
+                };
+            } else {
+                objectStore.add({ numero: numero }).onsuccess = function() {
+                    element.classList.add('selected');
+                };
+            }
+        }
+    </script>
+</body>
+</html>
